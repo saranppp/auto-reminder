@@ -17,14 +17,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.autoreminder.domain.Reminder
+import com.example.autoreminder.ui.ReminderViewModel
 import com.example.autoreminder.ui.theme.AutoReminderTheme
 
 class MainActivity : ComponentActivity() {
@@ -41,19 +40,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ReminderScreen() {
-    var reminderText by remember { mutableStateOf(TextFieldValue("")) }
-    var eventType by remember { mutableStateOf("movie_release") }
-    val reminders = remember {
-        mutableStateListOf(
-            ReminderItem(
-                id = 1,
-                text = "Remind me to book tickets when the movie is released",
-                eventType = "movie_release",
-                status = "waiting"
-            )
-        )
-    }
+fun ReminderScreen(viewModel: ReminderViewModel = viewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
+    val reminders by viewModel.reminders.collectAsState()
 
     Column(
         modifier = Modifier
@@ -66,62 +55,45 @@ fun ReminderScreen() {
             style = MaterialTheme.typography.headlineMedium
         )
 
+        Text(
+            text = "Detected trigger: ${uiState.detectedType}",
+            style = MaterialTheme.typography.bodyLarge
+        )
+
         OutlinedTextField(
-            value = reminderText,
-            onValueChange = { reminderText = it },
-            label = { Text("What should be reminded?") },
+            value = uiState.input,
+            onValueChange = viewModel::onInputChange,
+            label = { Text("What should trigger the reminder?") },
             modifier = Modifier.fillMaxWidth()
         )
 
         Button(
-            onClick = {
-                if (reminderText.text.isNotBlank()) {
-                    reminders.add(
-                        ReminderItem(
-                            id = System.currentTimeMillis().toInt(),
-                            text = reminderText.text,
-                            eventType = eventType,
-                            status = "waiting"
-                        )
-                    )
-                    reminderText = TextFieldValue("")
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
+            onClick = viewModel::createReminder,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = uiState.input.isNotBlank() && !uiState.isSubmitting
         ) {
             Text("Create reminder")
         }
 
-        Text(
-            text = "Event type: $eventType",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(reminders) { item ->
-                ReminderCard(item)
+            items(reminders) { reminder ->
+                ReminderCard(reminder)
             }
         }
     }
 }
 
 @Composable
-fun ReminderCard(reminder: ReminderItem) {
+fun ReminderCard(reminder: Reminder) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(reminder.text)
-            Text("Type: ${reminder.eventType}")
-            Text("Status: ${reminder.status}")
+            Text(reminder.userText)
+            Text("Type: ${reminder.triggerType.name}")
+            Text("Event: ${reminder.eventName ?: "Custom event"}")
+            Text("Status: ${reminder.status.name}")
         }
     }
 }
-
-data class ReminderItem(
-    val id: Int,
-    val text: String,
-    val eventType: String,
-    val status: String
-)
