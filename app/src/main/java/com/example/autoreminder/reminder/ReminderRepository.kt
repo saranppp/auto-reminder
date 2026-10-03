@@ -1,34 +1,31 @@
 package com.example.autoreminder.reminder
 
+import com.example.autoreminder.data.ReminderDao
+import com.example.autoreminder.data.ReminderEventChecker
+import com.example.autoreminder.data.toDomain
+import com.example.autoreminder.data.toEntity
 import com.example.autoreminder.domain.Reminder
 import com.example.autoreminder.domain.ReminderStatus
-import com.example.autoreminder.domain.ReminderType
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
-class ReminderRepository {
-    private val _reminders = MutableStateFlow(
-        listOf(
-            Reminder(
-                id = "demo-1",
-                userText = "Remind me to book tickets when the movie is released",
-                triggerType = ReminderType.MOVIE_RELEASE,
-                eventName = "New movie release",
-                status = ReminderStatus.WAITING
-            )
-        )
-    )
-
-    val reminders: StateFlow<List<Reminder>> = _reminders.asStateFlow()
-
-    fun add(reminder: Reminder) {
-        _reminders.value = listOf(reminder) + _reminders.value
+class ReminderRepository(
+    private val dao: ReminderDao,
+    private val eventChecker: ReminderEventChecker = ReminderEventChecker()
+) {
+    val reminders: Flow<List<Reminder>> = dao.observeAll().map { entities ->
+        entities.map { it.toDomain() }
     }
 
-    fun updateStatus(id: String, status: ReminderStatus) {
-        _reminders.value = _reminders.value.map { reminder ->
-            if (reminder.id == id) reminder.copy(status = status) else reminder
-        }
+    suspend fun add(reminder: Reminder) {
+        dao.insert(reminder.toEntity())
+    }
+
+    suspend fun updateStatus(id: String, status: ReminderStatus) {
+        dao.updateStatus(id, status.name)
+    }
+
+    fun evaluateReminder(reminder: Reminder, eventSignal: String): Boolean {
+        return eventChecker.shouldTrigger(reminder, eventSignal)
     }
 }

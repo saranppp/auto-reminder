@@ -1,7 +1,10 @@
 package com.example.autoreminder.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.autoreminder.data.ReminderDatabase
+import com.example.autoreminder.data.ReminderEventChecker
 import com.example.autoreminder.domain.Reminder
 import com.example.autoreminder.domain.ReminderClassifier
 import com.example.autoreminder.domain.ReminderStatus
@@ -17,8 +20,11 @@ data class ReminderUiState(
     val detectedType: String = "movie_release"
 )
 
-class ReminderViewModel : ViewModel() {
-    private val repository = ReminderRepository()
+class ReminderViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = ReminderRepository(
+        dao = ReminderDatabase.getDatabase(application).reminderDao(),
+        eventChecker = ReminderEventChecker()
+    )
     private val classifier = ReminderClassifier()
 
     private val _uiState = MutableStateFlow(ReminderUiState())
@@ -43,20 +49,28 @@ class ReminderViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true)
 
-            repository.add(
-                Reminder(
-                    userText = userText,
-                    triggerType = draft.triggerType,
-                    eventName = draft.eventName ?: draft.cleanedText,
-                    status = ReminderStatus.WAITING
-                )
+            val reminder = Reminder(
+                userText = userText,
+                triggerType = draft.triggerType,
+                eventName = draft.eventName ?: draft.cleanedText,
+                status = ReminderStatus.WAITING
             )
+
+            repository.add(reminder)
 
             _uiState.value = _uiState.value.copy(
                 input = "",
                 isSubmitting = false,
                 detectedType = "movie_release"
             )
+        }
+    }
+
+    fun triggerIfNeeded(reminder: Reminder, signal: String) {
+        if (repository.evaluateReminder(reminder, signal)) {
+            viewModelScope.launch {
+                repository.updateStatus(reminder.id, ReminderStatus.TRIGGERED)
+            }
         }
     }
 }
