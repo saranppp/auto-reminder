@@ -25,10 +25,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.autoreminder.domain.Reminder
 import com.example.autoreminder.ui.ReminderViewModel
 import com.example.autoreminder.ui.theme.AutoReminderTheme
+import com.example.autoreminder.worker.ReminderScheduler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ReminderScheduler(this).schedule()
+
         setContent {
             AutoReminderTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
