@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ReminderScreen(viewModel: ReminderViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
-    val reminders by viewModel.reminders.collectAsState()
+    val reminders by viewModel.reminders.collectAsState(initial = emptyList())
 
     Column(
         modifier = Modifier
